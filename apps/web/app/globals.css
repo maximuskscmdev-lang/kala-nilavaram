@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  h1, h2, h3 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl2 border border-ink-700 bg-ink-900 p-4;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .badge-news { @apply bg-brand/15 text-brand-light; }
+  .badge-study { @apply bg-accent/15 text-accent; }
+  .badge-review { @apply bg-teacher/15 text-teacher; }
+  .badge-community { @apply bg-ink-700 text-ink-100; }
+  .btn-primary {
+    @apply rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-50;
+  }
+  .btn-safe {
+    @apply rounded-full bg-safe px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90;
+  }
+}
+
+@layer utilities {
+  /* Gentle entrance for hero content */
+  .animate-fade-up {
+    animation: fade-up 0.7s ease-out both;
+  }
+  .animate-fade-up-delay {
+    animation: fade-up 0.7s ease-out 0.15s both;
+  }
+
+  /* Slow drift for decorative background shapes */
+  .animate-float {
+    animation: float 12s ease-in-out infinite;
+  }
+  .animate-float-slow {
+    animation: float 18s ease-in-out infinite reverse;
+  }
+
+  /* Subtle lift on interactive cards */
+  .card-hover {
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-up-delay,
+  .animate-float,
+  .animate-float-slow {
+    animation: none;
+  }
+  .card-hover,
+  .card-hover:hover {
+    transform: none;
+    transition: none;
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "Kala Nilavaram",
+  "short_name": "Kala Nilavaram",
+  "description": "Ground reality of schools — an independent, student-run platform for transparency, welfare, and community.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B0D10",
+  "theme_color": "#0B0D10",
+  "categories": ["news", "education", "social"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Raise an issue", "url": "/school/demo-school/whistleblower" },
+    { "name": "Study Hub", "url": "/school/demo-school/study" }
+  ]
+}
