@@ -51,6 +51,9 @@ export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname.includes('/whistleblower')) {
     response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
     response.headers.set('Cache-Control', 'no-store, max-age=0');
+    // Keep the secret tracking ID out of Referer headers / logs when the user
+    // clicks onward from the confirmation/track page (bug #22).
+    response.headers.set('Referrer-Policy', 'no-referrer');
   }
 
   return response;

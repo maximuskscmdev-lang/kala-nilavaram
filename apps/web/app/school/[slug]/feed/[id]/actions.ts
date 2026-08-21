@@ -61,13 +61,16 @@ export async function addComment(formData: FormData) {
 
   let authorIdentityId: string | null = null;
   if (parsed.displayMode !== 'real') {
-    const { data: existing } = await supabase
+    // Match on the exact pen name (bug #7) so a new pen name gets a new identity
+    // rather than silently reusing a previous one.
+    let existingQuery = supabase
       .from('author_identities')
       .select('id')
       .eq('user_id', auth.user.id)
       .eq('tenant_id', tenant.id)
-      .eq('display_mode', parsed.displayMode)
-      .maybeSingle();
+      .eq('display_mode', parsed.displayMode);
+    if (parsed.displayMode === 'pen_name') existingQuery = existingQuery.eq('pen_name', parsed.penName as string);
+    const { data: existing } = await existingQuery.maybeSingle();
 
     if (existing) {
       authorIdentityId = existing.id as string;

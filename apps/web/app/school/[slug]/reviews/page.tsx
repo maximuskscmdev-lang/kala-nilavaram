@@ -14,6 +14,7 @@
  */
 
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
 export default async function ReviewsPage({
@@ -29,6 +30,10 @@ export default async function ReviewsPage({
     .select('id, name')
     .eq('slug', params.slug)
     .maybeSingle();
+
+  // Unknown slug must 404 — otherwise the query below falls back to returning
+  // every tenant's published reviews, breaking tenant isolation (bug #14).
+  if (!tenant) notFound();
 
   let query = supabase
     .from('reviews')

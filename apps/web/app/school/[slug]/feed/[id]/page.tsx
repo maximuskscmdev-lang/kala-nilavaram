@@ -3,7 +3,7 @@
  * FILE: apps/web/app/school/[slug]/feed/[id]/page.tsx
  * PURPOSE: Full article/post reading page, featuring formatted body content,
  *          author attribution, post tags, reactions (like/heart/clap), and
- *          a moderated community comments section.
+ *          a community comments section.
  * 
  * IDENTIFIERS & SYMBOLS:
  * - PostDetailPage (Async React Server Component): Fetches the post by ID and tenant slug,

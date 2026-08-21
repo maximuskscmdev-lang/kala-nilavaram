@@ -22,9 +22,15 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET || 'dev_cron_secret';
+  const cronSecret = process.env.CRON_SECRET;
 
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${cronSecret}`) {
+  // CRON_SECRET must always be configured. If it is missing the endpoint is
+  // refused outright rather than falling back to a known dev secret (which
+  // would leave a service-role, SSRF-capable route open to the public).
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
@@ -105,8 +111,13 @@ function decodeEntities(s: string) {
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
+    .replace(/&apos;/g, "'")
     .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"');
+    .replace(/&quot;/g, '"')
+    .replace(/&nbsp;/g, ' ')
+    // Numeric (decimal and hexadecimal) entities, e.g. &#169; / &#x2022;
+    .replace(/&#(\d+);/g, (_m, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_m, code: string) => String.fromCodePoint(parseInt(code, 16)));
 }
 
 const RELEVANCE_PATTERN =

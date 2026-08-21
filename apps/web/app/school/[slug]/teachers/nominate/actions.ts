@@ -89,10 +89,20 @@ export async function nominateTeacher(formData: FormData) {
     round_id: roundId,
     teacher_profile_id: parsed.teacherProfileId,
     nominated_by_user_id: auth.user.id,
+    subject_taught: parsed.subjectTaught,
+    years_at_school: parsed.yearsAtSchool,
     statement: parsed.statement,
     supporting_notes: parsed.supportingNotes || null
   });
-  if (error) throw new Error(error.message);
+
+  // The unique (round_id, teacher_profile_id, nominated_by_user_id) constraint
+  // blocks ballot-stuffing duplicates (bug #12); surface a friendly message.
+  if (error) {
+    if (error.message.includes('unique') || error.message.toLowerCase().includes('duplicate')) {
+      throw new Error('You have already nominated this teacher for the current round.');
+    }
+    throw new Error(error.message);
+  }
 
   redirect(`/school/${parsed.tenantSlug}/teachers?nominated=1`);
 }

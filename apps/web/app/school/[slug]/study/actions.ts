@@ -23,6 +23,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { getSupabaseUrl } from '@/lib/config';
 
 const STUDY_FILES_BUCKET = 'study-files';
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // matches storage bucket + next.config bodySizeLimit
@@ -40,6 +41,34 @@ const UploadSchema = z.object({
   body: z.string().optional(),
   linkUrl: z.string().url().optional(),
   fileUrl: z.string().url().optional()
+}).superRefine((val, ctx) => {
+  // External reference URL: https only (bug #17).
+  if (val.linkUrl) {
+    try {
+      if (new URL(val.linkUrl).protocol !== 'https:') {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'External link must use https.', path: ['linkUrl'] });
+      }
+    } catch {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid external link.', path: ['linkUrl'] });
+    }
+  }
+  // A supplied fileUrl must be https AND live in our own study-files bucket —
+  // we never store/serve arbitrary third-party URLs as "attached resources".
+  if (val.fileUrl) {
+    try {
+      const u = new URL(val.fileUrl);
+      const storageBase = `${new URL(getSupabaseUrl()).host}/storage/v1/object/public/study-files/`;
+      if (u.protocol !== 'https:' || !u.host.includes(new URL(getSupabaseUrl()).host) || !u.pathname.includes('/storage/v1/object/public/study-files/')) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Attached file URL must point to this project’s study-files storage bucket.',
+          path: ['fileUrl']
+        });
+      }
+    } catch {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid file URL.', path: ['fileUrl'] });
+    }
+  }
 });
 
 async function uploadFileToStorage(file: File, tenantId: string, userId: string): Promise<string> {
@@ -135,6 +164,40 @@ export async function upvoteStudyItem(tenantSlug: string, itemId: string) {
   const supabase = createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect('/auth/sign-in');
+
+  // The item must belong to this school and the voter must be a verified member
+  // of it — otherwise any authenticated user could manipulate another school's
+  // rankings (bug #10).
+  const { data: item } = await supabase
+    .from('study_items')
+    .select('tenant_id')
+    .eq('id', itemId)
+    .maybeSingle();
+  if (!item) throw new Error('Study item not found.');
+
+  const { data: tenant } = await supabase
+    .from('tenants')
+    .select('id')
+    .eq('slug', tenantSlug)
+    .maybeSingle();
+  if (!tenant || item.tenant_id !== tenant.id) {
+    throw new Error('This study item does not belong to this school.');
+  }
+
+  const { data: membership } = await supabase
+    .from('memberships')
+    .select('role, verification_status')
+    .eq('user_id', auth.user.id)
+    .eq('tenant_id', tenant.id)
+    .eq('is_active', true)
+    .maybeSingle();
+  const isVerified =
+    !!membership &&
+    membership.verification_status === 'verified' &&
+    (membership.role === 'student' || membership.role === 'teacher');
+  if (!isVerified) {
+    throw new Error('Only verified members of this school can upvote.');
+  }
 
   const { data: existing } = await supabase
     .from('study_upvotes')

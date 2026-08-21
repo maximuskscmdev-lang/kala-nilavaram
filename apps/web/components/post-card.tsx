@@ -17,6 +17,20 @@
 
 import Link from 'next/link';
 
+// Only allow http(s) outbound links. A malicious/compromised RSS source could
+// supply `javascript:`/`data:` URLs; React does not sanitize href, so we reject
+// anything that is not a safe web URL (bug #9 — stored XSS via source_url).
+function safeExternalUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.protocol === 'http:' || u.protocol === 'https:') return url;
+  } catch {
+    /* not a valid URL */
+  }
+  return null;
+}
+
 type Post = {
   id: string;
   title: string;
@@ -64,7 +78,7 @@ export function PostCard({ post, slug }: { post: Post; slug: string }) {
 
       {isAggregated ? (
         <a
-          href={post.source_url ?? '#'}
+          href={safeExternalUrl(post.source_url) ?? '#'}
           target="_blank"
           rel="noopener noreferrer"
           className="block space-y-1"

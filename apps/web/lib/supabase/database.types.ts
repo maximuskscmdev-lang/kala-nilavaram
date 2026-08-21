@@ -751,6 +751,8 @@ export type Database = {
           statement: string
           supporting_notes: string | null
           teacher_profile_id: string
+          subject_taught: string | null
+          years_at_school: number | null
         }
         Insert: {
           created_at?: string
@@ -760,6 +762,8 @@ export type Database = {
           statement: string
           supporting_notes?: string | null
           teacher_profile_id: string
+          subject_taught?: string | null
+          years_at_school?: number | null
         }
         Update: {
           created_at?: string
@@ -769,6 +773,8 @@ export type Database = {
           statement?: string
           supporting_notes?: string | null
           teacher_profile_id?: string
+          subject_taught?: string | null
+          years_at_school?: number | null
         }
         Relationships: [
           {

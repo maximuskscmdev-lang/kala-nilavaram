@@ -27,7 +27,9 @@
 const MOCK_SUPABASE_URL = 'https://mock-kalanilavaram.supabase.co';
 const MOCK_ANON_KEY = 'mock-anon-key-kalanilavaram';
 const MOCK_SERVICE_ROLE_KEY = 'mock-service-role-key-kalanilavaram';
-const MOCK_WHISTLEBLOWER_KEY = 'default-kalanilavaram-dev-secret-key-32b';
+// NOTE: No hardcoded fallback for WHISTLEBLOWER_ENCRYPTION_KEY — a weak/known
+// key would silently decrypt every reporter's contact details. It must always
+// be supplied via env (or demo mode).
 
 export const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 export const ENABLE_DEMO_MODE = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === 'true';
@@ -68,7 +70,7 @@ export function getWhistleblowerEncryptionKey(): string {
   const v = process.env.WHISTLEBLOWER_ENCRYPTION_KEY;
   if (v) return v;
   assertDemoEligible('WHISTLEBLOWER_ENCRYPTION_KEY');
-  return MOCK_WHISTLEBLOWER_KEY;
+  throw new Error('WHISTLEBLOWER_ENCRYPTION_KEY is not configured.');
 }
 
 export interface DemoTenant {

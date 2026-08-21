@@ -98,13 +98,13 @@ export default function SubmitPostPage() {
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-semibold text-ink-300">Article Content (Markdown supported)</label>
+          <label className="mb-1 block text-xs font-semibold text-ink-300">Article Content</label>
           <textarea
             name="body"
             required
             minLength={20}
             rows={10}
-            placeholder="Write your article body here. Markdown headers, lists, and quotes are supported..."
+            placeholder="Write your article body here. Plain text — line breaks are preserved."
             className="w-full rounded-lg border border-ink-700 bg-ink-950 px-3 py-2 text-sm text-ink-100 placeholder-ink-500 focus:border-brand focus:outline-none"
           />
         </div>

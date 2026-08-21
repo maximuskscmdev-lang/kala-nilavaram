@@ -63,12 +63,15 @@ export async function startRecognitionRound(formData: FormData) {
     throw new Error('The round end date must be after the start date.');
   }
 
+  // Derive cadence from the chosen dates instead of hardcoding 2 (bug #25).
+  const intervalMonths = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+
   const { error } = await supabase.from('recognition_rounds').insert({
     tenant_id: tenant.id,
     round_label: parsed.roundLabel,
     period_start: start.toISOString().slice(0, 10),
     period_end: end.toISOString().slice(0, 10),
-    interval_months: 2,
+    interval_months: intervalMonths,
     status: 'open'
   });
   if (error) throw new Error(error.message);
@@ -114,14 +117,28 @@ export async function awardTeacher(
   const supabase = createClient();
 
   // The round and the teacher profile must both belong to this school — never
-  // award a teacher from another chapter through a forged request.
+  // award a teacher from another chapter through a forged request. The round
+  // must also still be open (bug #16).
   const { data: round } = await supabase
     .from('recognition_rounds')
     .select('id')
     .eq('id', roundId)
     .eq('tenant_id', staff.tenantId)
+    .eq('status', 'open')
     .maybeSingle();
-  if (!round) throw new Error('The selected recognition round does not belong to this school.');
+  if (!round) throw new Error('The selected recognition round is not open for this school.');
+
+  // Validate the score breakdown server-side (bug #13) — no trusting client
+  // numbers. 60/25/15 weighting must sum to total.
+  const s = scoreBreakdown;
+  const scores = [s.review_score, s.nomination_score, s.editorial_score, s.total];
+  if (scores.some((n) => typeof n !== 'number' || Number.isNaN(n) || n < 0 || n > 100)) {
+    throw new Error('Each score must be a number between 0 and 100.');
+  }
+  const expectedTotal = Math.round(s.review_score + s.nomination_score + s.editorial_score);
+  if (s.total !== expectedTotal) {
+    throw new Error(`Total (${s.total}) must equal review + nomination + editorial (${expectedTotal}).`);
+  }
 
   const { data: teacher } = await supabase
     .from('teacher_profiles')

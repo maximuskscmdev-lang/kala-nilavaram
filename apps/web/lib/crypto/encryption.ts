@@ -37,7 +37,7 @@ function getKey(): Buffer {
 
 export function generateTrackingId(): string {
   const year = new Date().getFullYear();
-  const randomBytes = crypto.randomBytes(3).toString('hex').toUpperCase();
+  const randomBytes = crypto.randomBytes(6).toString('hex').toUpperCase();
   return `KN-${year}-${randomBytes}`;
 }
 
@@ -91,14 +91,10 @@ export function decryptContactInfo(encryptedData: string | Buffer): ContactData 
     const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     return JSON.parse(decrypted.toString('utf8'));
   } catch (err: any) {
-    // If it was stored in raw text/json format (fallback)
-    if (typeof encryptedData === 'string' && encryptedData.startsWith('{')) {
-      return JSON.parse(encryptedData);
-    }
-    return {
-      real_name: 'Encrypted Contact',
-      phone: 'Contact Moderator',
-      email: null
-    };
+    // Never fall back to returning stored ciphertext as if it were plaintext —
+    // that would silently leak contact details and mask key-rotation/tamper
+    // incidents. Surface the failure so it can be alerted on.
+    console.error('decryptContactInfo failed:', err?.message);
+    throw new Error('Unable to decrypt contact information.');
   }
 }

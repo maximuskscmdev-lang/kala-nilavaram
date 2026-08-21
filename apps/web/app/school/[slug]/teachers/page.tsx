@@ -15,6 +15,7 @@
  */
 
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { attachProfileRealNames } from '@/lib/supabase/profiles';
 
@@ -31,6 +32,10 @@ export default async function TeachersPage({
     .select('id, name')
     .eq('slug', params.slug)
     .maybeSingle();
+
+  // Unknown slug must 404 to preserve tenant isolation of the public showcase
+  // (bug #14).
+  if (!tenant) notFound();
 
   let awardedQuery = supabase
     .from('teacher_profiles')

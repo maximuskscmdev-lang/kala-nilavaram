@@ -74,9 +74,21 @@ async function assertRateLimit(supabase: ReturnType<typeof createClient>, userId
   if (!withinRateLimit(Math.max(inWindow, count ?? 0), REVIEW_RATE_LIMIT.maxPerPeriod)) {
     throw new Error('You can submit at most one review per school every 30 days.');
   }
+
+  // Atomic, concurrency-safe guard: the unique insert in acquire_review_lock()
+  // ensures two near-simultaneous submissions cannot both pass (bug #15). The
+  // rolling-window check above remains the fast path.
+  const { data: lockAcquired, error: lockError } = await (supabase.rpc as any)('acquire_review_lock', {
+    p_user: userId,
+    p_tenant: tenantId
+  });
+  if (lockError) throw new Error(lockError.message);
+  if (!lockAcquired) {
+    throw new Error('You can submit at most one review per school every 30 days.');
+  }
 }
 
-async function assertVerifiedMember(tenantSlug: string): Promise<{ supabase: ReturnType<typeof createClient>; userId: string; tenantId: string }> {
+async function assertVerifiedMember(tenantSlug: string): Promise<{ supabase: ReturnType<typeof createClient>; userId: string; tenantId: string; role: 'student' | 'teacher' }> {
   const supabase = createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect('/auth/sign-in');
@@ -101,7 +113,14 @@ async function assertVerifiedMember(tenantSlug: string): Promise<{ supabase: Ret
     redirect(`/onboarding?tenant=${tenantSlug}`);
   }
 
-  return { supabase, userId: auth.user.id, tenantId: tenant.id as string };
+  // The caller's actual role is the source of truth for reviewer_role. We never
+  // trust the client-selected track (bug #2 — dual-track integrity).
+  return {
+    supabase,
+    userId: auth.user.id,
+    tenantId: tenant.id as string,
+    role: membership!.role as 'student' | 'teacher'
+  };
 }
 
 async function resolveAuthorIdentity(
@@ -113,13 +132,17 @@ async function resolveAuthorIdentity(
 ): Promise<string | null> {
   if (displayMode === 'real') return null;
 
-  const { data: existing } = await supabase
+  // Match on the exact pen name (not just any pen-name identity for this user),
+  // so switching pen names creates a distinct identity instead of silently
+  // reusing the previous one (bug #7).
+  let existingQuery = supabase
     .from('author_identities')
     .select('id')
     .eq('user_id', userId)
     .eq('tenant_id', tenantId)
-    .eq('display_mode', displayMode)
-    .maybeSingle();
+    .eq('display_mode', displayMode);
+  if (displayMode === 'pen_name') existingQuery = existingQuery.eq('pen_name', penName as string);
+  const { data: existing } = await existingQuery.maybeSingle();
   if (existing) return existing.id as string;
 
   const { data: created, error } = await supabase
@@ -152,7 +175,7 @@ async function resolveAuthorIdentity(
 
 export async function submitStudentReview(formData: FormData) {
   const parsed = StudentReviewSchema.parse(Object.fromEntries(formData));
-  const { supabase, userId, tenantId } = await assertVerifiedMember(parsed.tenantSlug);
+  const { supabase, userId, tenantId, role } = await assertVerifiedMember(parsed.tenantSlug);
 
   await assertRateLimit(supabase, userId, tenantId);
 
@@ -167,7 +190,7 @@ export async function submitStudentReview(formData: FormData) {
   const { error } = await supabase.from('reviews').insert({
     tenant_id: tenantId,
     reviewer_user_id: userId,
-    reviewer_role: 'student',
+    reviewer_role: role,
     target_type: parsed.targetTeacherName ? 'teacher' : 'school',
     target_teacher_name: parsed.targetTeacherName || null,
     ratings: {
@@ -176,7 +199,7 @@ export async function submitStudentReview(formData: FormData) {
       environment: parsed.environment,
       safety: parsed.safety,
       extracurriculars: parsed.extracurriculars
-    },
+    } as Record<string, number>,
     body: parsed.body,
     display_mode: parsed.displayMode,
     author_identity_id: authorIdentityId,
@@ -190,7 +213,7 @@ export async function submitStudentReview(formData: FormData) {
 
 export async function submitTeacherReview(formData: FormData) {
   const parsed = TeacherReviewSchema.parse(Object.fromEntries(formData));
-  const { supabase, userId, tenantId } = await assertVerifiedMember(parsed.tenantSlug);
+  const { supabase, userId, tenantId, role } = await assertVerifiedMember(parsed.tenantSlug);
 
   await assertRateLimit(supabase, userId, tenantId);
 
@@ -205,7 +228,7 @@ export async function submitTeacherReview(formData: FormData) {
   const { error } = await supabase.from('reviews').insert({
     tenant_id: tenantId,
     reviewer_user_id: userId,
-    reviewer_role: 'teacher',
+    reviewer_role: role,
     target_type: 'school',
     target_teacher_name: null,
     ratings: {

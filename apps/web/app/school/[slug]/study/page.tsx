@@ -16,8 +16,22 @@
  */
 
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { upvoteStudyItem } from './actions';
+
+// Only render http(s) outbound links — stored/aggregated URLs must not be able
+// to carry `javascript:`/`data:` payloads (bug #9).
+function safeUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.protocol === 'http:' || u.protocol === 'https:') return url;
+  } catch {
+    /* not a valid URL */
+  }
+  return null;
+}
 
 export default async function StudyHubPage({
   params,
@@ -32,6 +46,10 @@ export default async function StudyHubPage({
     .select('id, name')
     .eq('slug', params.slug)
     .maybeSingle();
+
+  // Unknown slug must 404 to preserve tenant isolation of the public hub
+  // (bug #14).
+  if (!tenant) notFound();
 
   let query = supabase
     .from('study_items')
@@ -134,10 +152,10 @@ export default async function StudyHubPage({
               </div>
             )}
 
-            {it.file_url && (
+            {safeUrl(it.file_url) && (
               <div className="pt-1">
                 <a
-                  href={it.file_url}
+                  href={safeUrl(it.file_url)!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-brand-light hover:underline font-medium"
@@ -147,10 +165,10 @@ export default async function StudyHubPage({
               </div>
             )}
 
-            {it.link_url && (
+            {safeUrl(it.link_url) && (
               <div className="pt-1">
                 <a
-                  href={it.link_url}
+                  href={safeUrl(it.link_url)!}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-brand-light hover:underline font-medium"

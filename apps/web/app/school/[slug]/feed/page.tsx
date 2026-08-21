@@ -49,7 +49,7 @@ export default async function FeedPage({
   searchParams
 }: {
   params: { slug: string };
-  searchParams: { category?: string; scope?: 'school' | 'all' | 'state' | 'national' };
+  searchParams: { category?: string; scope?: 'school' | 'all' | 'state' | 'national'; page?: string };
 }) {
   const supabase = createClient();
   const { data: tenant } = await supabase
@@ -89,7 +89,11 @@ export default async function FeedPage({
   } else {
     query = query.order('published_at', { ascending: false });
   }
-  query = query.limit(30);
+
+  // Basic cursor pagination (bug #24) — 30 per page, offset by ?page=N.
+  const PAGE_SIZE = 30;
+  const pageNum = Math.max(1, Number(searchParams.page) || 1);
+  query = query.limit(PAGE_SIZE).range((pageNum - 1) * PAGE_SIZE, pageNum * PAGE_SIZE - 1);
 
   const { data: posts } = await query;
 
@@ -173,6 +177,29 @@ export default async function FeedPage({
                 className="btn-primary mt-4 inline-block text-xs"
               >
                 Submit first post
+              </Link>
+            )}
+          </div>
+        )}
+
+        {(postsWithAuthors?.length ?? 0) > 0 && (
+          <div className="flex items-center justify-between pt-2 text-xs">
+            {pageNum > 1 ? (
+              <Link
+                href={`?scope=${scope}${searchParams.category ? `&category=${searchParams.category}` : ''}&page=${pageNum - 1}`}
+                className="rounded-full border border-ink-700 px-3 py-1.5 font-medium text-ink-300 hover:border-ink-500 hover:text-ink-100 transition"
+              >
+                ← Newer
+              </Link>
+            ) : (
+              <span />
+            )}
+            {(postsWithAuthors?.length ?? 0) >= PAGE_SIZE && (
+              <Link
+                href={`?scope=${scope}${searchParams.category ? `&category=${searchParams.category}` : ''}&page=${pageNum + 1}`}
+                className="rounded-full border border-ink-700 px-3 py-1.5 font-medium text-ink-300 hover:border-ink-500 hover:text-ink-100 transition"
+              >
+                Older →
               </Link>
             )}
           </div>
